@@ -1,0 +1,6 @@
+{
+  "name": "Net4City",
+  "description": "NET4CITY — STEM Network City Builder & Physical Diorama Learning Platform untuk pembelajaran TJKT/TKJ SMK dengan game simulasi kota isometric 2.5D, Character Studio, QR/Barcode Scanner Mode, Diorama Inventory, dan penilaian berbasis Firebase.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

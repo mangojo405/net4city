@@ -1,0 +1,651 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // =========================================================================
+    // 1. GLOBAL DEFAULT-DENY SAFETY NET
+    // =========================================================================
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // =========================================================================
+    // 2. HARDENED PRIMITIVES & IDENTITY HELPERS
+    // =========================================================================
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isBootstrappedAdmin() {
+      return isSignedIn() &&
+             ('email' in request.auth.token) &&
+             request.auth.token.email == 'dabojo.1487@gmail.com' &&
+             ('email_verified' in request.auth.token) &&
+             request.auth.token.email_verified == true;
+    }
+
+    function isAdmin() {
+      return isBootstrappedAdmin() ||
+             (isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid)));
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isOwnerOrAdmin(userId) {
+      return isOwner(userId) || isAdmin();
+    }
+
+    function isValidTimestamp(ts) {
+      return ts is timestamp && ts <= request.time;
+    }
+
+    function isBoundedString(val, minLen, maxLen) {
+      return val is string && val.size() >= minLen && val.size() <= maxLen;
+    }
+
+    function isBoundedStringList(val, maxItems) {
+      return val is list && val.size() <= maxItems &&
+             (val.size() == 0 || (val[0] is string && val[0].size() <= 80));
+    }
+
+    function isBoundedIntList(val, maxItems) {
+      return val is list && val.size() <= maxItems &&
+             (val.size() == 0 || val[0] is int);
+    }
+
+    function isBoundedMapList(val, maxItems) {
+      return val is list && val.size() <= maxItems &&
+             (val.size() == 0 || val[0] is map);
+    }
+
+    // =========================================================================
+    // 3. ENTITY VALIDATION BLUEPRINTS (Anti-Update-Gap)
+    // =========================================================================
+
+    function isValidAdminRecord(data) {
+      return isBoundedString(data.displayName, 2, 80) &&
+             isBoundedString(data.email, 3, 120) &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidUserProfile(data, userId) {
+      return data.userId == userId &&
+             isBoundedString(data.userId, 1, 128) &&
+             isBoundedString(data.displayName, 1, 80) &&
+             data.workspacePersona in ['ADMIN', 'GURU', 'SISWA'] &&
+             isBoundedString(data.selectedClassId, 0, 64) &&
+             isBoundedString(data.selectedStudentId, 0, 64) &&
+             data.demoSeeded is bool &&
+             data.coins is int && data.coins >= 0 && data.coins <= 10000000 &&
+             data.xp is int && data.xp >= 0 && data.xp <= 10000000 &&
+             data.unlockedLevel is int && data.unlockedLevel >= 1 && data.unlockedLevel <= 10 &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidClassRoom(data, userId) {
+      return data.userId == userId &&
+             isBoundedString(data.userId, 1, 128) &&
+             isBoundedString(data.code, 2, 30) &&
+             isBoundedString(data.name, 2, 80) &&
+             isBoundedString(data.teacherName, 2, 80) &&
+             data.maxUnlockedLevel is int && data.maxUnlockedLevel >= 1 && data.maxUnlockedLevel <= 10 &&
+             isBoundedString(data.activeSessionMission, 0, 120) &&
+             isBoundedStringList(data.labGroups, 10) &&
+             data.demoData is bool &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidSchoolMember(data, userId) {
+      return data.userId == userId &&
+             isBoundedString(data.userId, 1, 128) &&
+             data.memberType in ['GURU', 'SISWA'] &&
+             isBoundedString(data.fullName, 2, 80) &&
+             isBoundedString(data.identityNumber, 2, 40) &&
+             isBoundedString(data.classId, 0, 64) &&
+             isBoundedStringList(data.assignedClasses, 10) &&
+             isBoundedString(data.groupName, 0, 60) &&
+             data.xp is int && data.xp >= 0 && data.xp <= 1000000 &&
+             data.level is int && data.level >= 1 && data.level <= 10 &&
+             isBoundedString(data.characterId, 0, 64) &&
+             data.demoData is bool &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidCharacter(data, userId) {
+      return data.userId == userId &&
+             isBoundedString(data.userId, 1, 128) &&
+             isBoundedString(data.characterCode, 4, 32) &&
+             isBoundedString(data.name, 2, 60) &&
+             isBoundedString(data.ownerName, 2, 80) &&
+             isBoundedString(data.classId, 0, 64) &&
+             isBoundedString(data.profession, 2, 60) &&
+             isBoundedString(data.faceShape, 1, 30) &&
+             isBoundedString(data.hairStyle, 1, 30) &&
+             isBoundedString(data.hairColor, 1, 30) &&
+             isBoundedString(data.outfitStyle, 1, 40) &&
+             isBoundedString(data.pantsColor, 1, 30) &&
+             isBoundedString(data.shoeStyle, 1, 30) &&
+             isBoundedString(data.accessory, 0, 40) &&
+             isBoundedString(data.workTool, 0, 40) &&
+             data.level is int && data.level >= 1 && data.level <= 10 &&
+             data.xp is int && data.xp >= 0 && data.xp <= 1000000 &&
+             isBoundedStringList(data.skills, 10) &&
+             data.demoData is bool &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidBarcodeObject(data, userId) {
+      return data.userId == userId &&
+             isBoundedString(data.userId, 1, 128) &&
+             isBoundedString(data.barcodeCode, 4, 32) &&
+             isBoundedString(data.objectName, 2, 80) &&
+             isBoundedString(data.category, 2, 40) &&
+             isBoundedString(data.functionDesc, 2, 300) &&
+             isBoundedString(data.specs, 2, 300) &&
+             data.portCount is int && data.portCount >= 0 && data.portCount <= 256 &&
+             data.virtualPrice is int && data.virtualPrice >= 0 && data.virtualPrice <= 1000000 &&
+             isBoundedString(data.installNeeds, 0, 200) &&
+             data.relatedLevel is int && data.relatedLevel >= 1 && data.relatedLevel <= 10 &&
+             isBoundedString(data.storageLocation, 2, 80) &&
+             data.inventoryStatus in ['TERSEDIA', 'DIGUNAKAN', 'PERBAIKAN'] &&
+             isBoundedString(data.activeClassId, 0, 64) &&
+             isBoundedString(data.activeStudentName, 0, 80) &&
+             data.demoData is bool &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidDioramaModule(data, userId) {
+      return data.userId == userId &&
+             isBoundedString(data.userId, 1, 128) &&
+             isBoundedString(data.moduleCode, 3, 32) &&
+             isBoundedString(data.name, 2, 80) &&
+             isBoundedString(data.category, 2, 40) &&
+             isBoundedString(data.barcodeCode, 4, 32) &&
+             isBoundedString(data.description, 2, 300) &&
+             isBoundedString(data.storageLocation, 2, 80) &&
+             data.moduleStatus in ['TERSEDIA', 'DIGUNAKAN'] &&
+             isBoundedIntList(data.requiredLevels, 10) &&
+             isBoundedString(data.activeClassId, 0, 64) &&
+             isBoundedString(data.activeSessionLabel, 0, 120) &&
+             data.verifiedByTeacher is bool &&
+             data.demoData is bool &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidScanLog(data, userId) {
+      return data.userId == userId &&
+             isBoundedString(data.userId, 1, 128) &&
+             isBoundedString(data.barcodeCode, 4, 32) &&
+             isBoundedString(data.objectName, 2, 80) &&
+             isBoundedString(data.classId, 0, 64) &&
+             isBoundedString(data.studentName, 0, 80) &&
+             isBoundedString(data.sessionName, 0, 120) &&
+             data.addedToInventory is bool &&
+             isBoundedString(data.scanNote, 0, 200) &&
+             isValidTimestamp(data.createdAt);
+    }
+
+    function isValidCityWorld(data, userId) {
+      return data.userId == userId &&
+             isBoundedString(data.userId, 1, 128) &&
+             isBoundedString(data.classId, 1, 64) &&
+             data.activeLevel is int && data.activeLevel >= 1 && data.activeLevel <= 10 &&
+             data.coins is int && data.coins >= 0 && data.coins <= 10000000 &&
+             data.xp is int && data.xp >= 0 && data.xp <= 10000000 &&
+             data.networkHealth is int && data.networkHealth >= 0 && data.networkHealth <= 100 &&
+             isBoundedString(data.activeFault, 0, 120) &&
+             data.stemPhase in ['EXPLORE', 'DESIGN', 'BUILD', 'TEST'] &&
+             isBoundedIntList(data.completedLevels, 10) &&
+             isBoundedMapList(data.placedNodes, 60) &&
+             isBoundedMapList(data.cableLinks, 80) &&
+             isBoundedStringList(data.sessionInventory, 40) &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidAssessment(data, userId) {
+      return data.userId == userId &&
+             isBoundedString(data.userId, 1, 128) &&
+             isBoundedString(data.studentName, 2, 80) &&
+             isBoundedString(data.classId, 1, 64) &&
+             isBoundedString(data.groupName, 0, 60) &&
+             data.levelNumber is int && data.levelNumber >= 1 && data.levelNumber <= 10 &&
+             isBoundedString(data.missionTitle, 2, 120) &&
+             data.durationMinutes is int && data.durationMinutes >= 0 && data.durationMinutes <= 600 &&
+             data.technicalScore is int && data.technicalScore >= 0 && data.technicalScore <= 100 &&
+             data.designScore is int && data.designScore >= 0 && data.designScore <= 100 &&
+             data.physicalScore is int && data.physicalScore >= 0 && data.physicalScore <= 100 &&
+             data.troubleshootingScore is int && data.troubleshootingScore >= 0 && data.troubleshootingScore <= 100 &&
+             data.finalScore is int && data.finalScore >= 0 && data.finalScore <= 100 &&
+             isBoundedString(data.gameResultSummary, 0, 200) &&
+             data.dioramaVerified is bool &&
+             isBoundedString(data.teacherNote, 0, 500) &&
+             data.status in ['DRAFT', 'FINALIZED'] &&
+             data.demoData is bool &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    // =========================================================================
+    // 4. COLLECTION RULES
+    // =========================================================================
+
+    match /admins/{adminId} {
+      allow get: if isSignedIn() && isValidId(adminId) && (request.auth.uid == adminId || isBootstrappedAdmin());
+      allow list: if isBootstrappedAdmin();
+      allow create: if isBootstrappedAdmin() &&
+                       isValidId(adminId) &&
+                       incoming().keys().hasAll(['displayName', 'email', 'createdAt', 'updatedAt']) &&
+                       incoming().keys().hasOnly(['displayName', 'email', 'createdAt', 'updatedAt']) &&
+                       isValidAdminRecord(incoming());
+      allow update: if isBootstrappedAdmin() &&
+                       isValidId(adminId) &&
+                       isValidAdminRecord(incoming()) &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'email', 'updatedAt']);
+      allow delete: if isBootstrappedAdmin() && isValidId(adminId);
+    }
+
+    match /users/{userId} {
+      allow get: if isSignedIn() && isValidId(userId) && isOwnerOrAdmin(userId);
+      allow list: if isAdmin();
+
+      allow create: if isSignedIn() &&
+                       isValidId(userId) &&
+                       isOwner(userId) &&
+                       incoming().keys().hasAll([
+                         'userId', 'displayName', 'workspacePersona', 'selectedClassId',
+                         'selectedStudentId', 'demoSeeded', 'coins', 'xp', 'unlockedLevel',
+                         'createdAt', 'updatedAt'
+                       ]) &&
+                       incoming().keys().hasOnly([
+                         'userId', 'displayName', 'workspacePersona', 'selectedClassId',
+                         'selectedStudentId', 'demoSeeded', 'coins', 'xp', 'unlockedLevel',
+                         'createdAt', 'updatedAt'
+                       ]) &&
+                       isValidUserProfile(incoming(), userId);
+
+      allow update: if isSignedIn() &&
+                       isValidId(userId) &&
+                       isValidUserProfile(incoming(), userId) &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt &&
+                       (
+                         isAdmin() ||
+                         (
+                           isOwner(userId) &&
+                           incoming().diff(existing()).affectedKeys().hasOnly([
+                             'displayName', 'workspacePersona', 'selectedClassId',
+                             'selectedStudentId', 'demoSeeded', 'coins', 'xp',
+                             'unlockedLevel', 'updatedAt'
+                           ])
+                         )
+                       );
+
+      allow delete: if isSignedIn() && isValidId(userId) && isOwnerOrAdmin(userId);
+
+      // -----------------------------------------------------------------------
+      // CLASSES (X TKJ 1 - X TKJ 4)
+      // -----------------------------------------------------------------------
+      match /classes/{classId} {
+        allow get: if isSignedIn() && isValidId(classId) && isOwnerOrAdmin(userId);
+        allow list: if isSignedIn() && isOwnerOrAdmin(userId);
+
+        allow create: if isSignedIn() &&
+                         isValidId(classId) &&
+                         isOwnerOrAdmin(userId) &&
+                         incoming().keys().hasAll([
+                           'userId', 'code', 'name', 'teacherName', 'maxUnlockedLevel',
+                           'activeSessionMission', 'labGroups', 'demoData', 'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'code', 'name', 'teacherName', 'maxUnlockedLevel',
+                           'activeSessionMission', 'labGroups', 'demoData', 'createdAt', 'updatedAt'
+                         ]) &&
+                         isValidClassRoom(incoming(), userId);
+
+        allow update: if isSignedIn() &&
+                         isValidId(classId) &&
+                         isValidClassRoom(incoming(), userId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         (
+                           isAdmin() ||
+                           (
+                             isOwner(userId) &&
+                             incoming().diff(existing()).affectedKeys().hasOnly([
+                               'code', 'name', 'teacherName', 'maxUnlockedLevel',
+                               'activeSessionMission', 'labGroups', 'demoData', 'updatedAt'
+                             ])
+                           )
+                         );
+
+        allow delete: if isSignedIn() && isValidId(classId) && isOwnerOrAdmin(userId);
+      }
+
+      // -----------------------------------------------------------------------
+      // SCHOOL MEMBERS (GURU & SISWA) - PII ISOLATED PER WORKSPACE OWNER
+      // -----------------------------------------------------------------------
+      match /members/{memberId} {
+        allow get: if isSignedIn() && isValidId(memberId) && isOwnerOrAdmin(userId);
+        allow list: if isSignedIn() && isOwnerOrAdmin(userId);
+
+        allow create: if isSignedIn() &&
+                         isValidId(memberId) &&
+                         isOwnerOrAdmin(userId) &&
+                         incoming().keys().hasAll([
+                           'userId', 'memberType', 'fullName', 'identityNumber', 'classId',
+                           'assignedClasses', 'groupName', 'xp', 'level', 'characterId',
+                           'demoData', 'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'memberType', 'fullName', 'identityNumber', 'classId',
+                           'assignedClasses', 'groupName', 'xp', 'level', 'characterId',
+                           'demoData', 'createdAt', 'updatedAt'
+                         ]) &&
+                         isValidSchoolMember(incoming(), userId);
+
+        allow update: if isSignedIn() &&
+                         isValidId(memberId) &&
+                         isValidSchoolMember(incoming(), userId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         (
+                           isAdmin() ||
+                           (
+                             isOwner(userId) &&
+                             incoming().diff(existing()).affectedKeys().hasOnly([
+                               'memberType', 'fullName', 'identityNumber', 'classId',
+                               'assignedClasses', 'groupName', 'xp', 'level',
+                               'characterId', 'demoData', 'updatedAt'
+                             ])
+                           )
+                         );
+
+        allow delete: if isSignedIn() && isValidId(memberId) && isOwnerOrAdmin(userId);
+      }
+
+      // -----------------------------------------------------------------------
+      // CHARACTER STUDIO
+      // -----------------------------------------------------------------------
+      match /characters/{characterId} {
+        allow get: if isSignedIn() && isValidId(characterId) && isOwnerOrAdmin(userId);
+        allow list: if isSignedIn() && isOwnerOrAdmin(userId);
+
+        allow create: if isSignedIn() &&
+                         isValidId(characterId) &&
+                         isOwnerOrAdmin(userId) &&
+                         incoming().keys().hasAll([
+                           'userId', 'characterCode', 'name', 'ownerName', 'classId',
+                           'profession', 'faceShape', 'hairStyle', 'hairColor',
+                           'outfitStyle', 'pantsColor', 'shoeStyle', 'accessory',
+                           'workTool', 'level', 'xp', 'skills', 'demoData',
+                           'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'characterCode', 'name', 'ownerName', 'classId',
+                           'profession', 'faceShape', 'hairStyle', 'hairColor',
+                           'outfitStyle', 'pantsColor', 'shoeStyle', 'accessory',
+                           'workTool', 'level', 'xp', 'skills', 'demoData',
+                           'createdAt', 'updatedAt'
+                         ]) &&
+                         isValidCharacter(incoming(), userId);
+
+        allow update: if isSignedIn() &&
+                         isValidId(characterId) &&
+                         isValidCharacter(incoming(), userId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().characterCode == existing().characterCode &&
+                         incoming().createdAt == existing().createdAt &&
+                         (
+                           isAdmin() ||
+                           (
+                             isOwner(userId) &&
+                             incoming().diff(existing()).affectedKeys().hasOnly([
+                               'name', 'ownerName', 'classId', 'profession',
+                               'faceShape', 'hairStyle', 'hairColor', 'outfitStyle',
+                               'pantsColor', 'shoeStyle', 'accessory', 'workTool',
+                               'level', 'xp', 'skills', 'updatedAt'
+                             ])
+                           )
+                         );
+
+        allow delete: if isSignedIn() && isValidId(characterId) && isOwnerOrAdmin(userId);
+      }
+
+      // -----------------------------------------------------------------------
+      // BARCODE REGISTRY (Permanent Physical Identities)
+      // -----------------------------------------------------------------------
+      match /barcodes/{barcodeId} {
+        allow get: if isSignedIn() && isValidId(barcodeId) && isOwnerOrAdmin(userId);
+        allow list: if isSignedIn() && isOwnerOrAdmin(userId);
+
+        allow create: if isSignedIn() &&
+                         isValidId(barcodeId) &&
+                         isOwnerOrAdmin(userId) &&
+                         incoming().keys().hasAll([
+                           'userId', 'barcodeCode', 'objectName', 'category', 'functionDesc',
+                           'specs', 'portCount', 'virtualPrice', 'installNeeds', 'relatedLevel',
+                           'storageLocation', 'inventoryStatus', 'activeClassId',
+                           'activeStudentName', 'demoData', 'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'barcodeCode', 'objectName', 'category', 'functionDesc',
+                           'specs', 'portCount', 'virtualPrice', 'installNeeds', 'relatedLevel',
+                           'storageLocation', 'inventoryStatus', 'activeClassId',
+                           'activeStudentName', 'demoData', 'createdAt', 'updatedAt'
+                         ]) &&
+                         isValidBarcodeObject(incoming(), userId);
+
+        allow update: if isSignedIn() &&
+                         isValidId(barcodeId) &&
+                         isValidBarcodeObject(incoming(), userId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().barcodeCode == existing().barcodeCode &&
+                         incoming().createdAt == existing().createdAt &&
+                         (
+                           isAdmin() ||
+                           (
+                             isOwner(userId) &&
+                             incoming().diff(existing()).affectedKeys().hasOnly([
+                               'objectName', 'category', 'functionDesc', 'specs',
+                               'portCount', 'virtualPrice', 'installNeeds', 'relatedLevel',
+                               'storageLocation', 'inventoryStatus', 'activeClassId',
+                               'activeStudentName', 'updatedAt'
+                             ])
+                           )
+                         );
+
+        allow delete: if isSignedIn() && isValidId(barcodeId) && isOwnerOrAdmin(userId);
+      }
+
+      // -----------------------------------------------------------------------
+      // DIORAMA MODULES (Shared Physical Modules)
+      // -----------------------------------------------------------------------
+      match /diorama_modules/{moduleId} {
+        allow get: if isSignedIn() && isValidId(moduleId) && isOwnerOrAdmin(userId);
+        allow list: if isSignedIn() && isOwnerOrAdmin(userId);
+
+        allow create: if isSignedIn() &&
+                         isValidId(moduleId) &&
+                         isOwnerOrAdmin(userId) &&
+                         incoming().keys().hasAll([
+                           'userId', 'moduleCode', 'name', 'category', 'barcodeCode',
+                           'description', 'storageLocation', 'moduleStatus', 'requiredLevels',
+                           'activeClassId', 'activeSessionLabel', 'verifiedByTeacher',
+                           'demoData', 'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'moduleCode', 'name', 'category', 'barcodeCode',
+                           'description', 'storageLocation', 'moduleStatus', 'requiredLevels',
+                           'activeClassId', 'activeSessionLabel', 'verifiedByTeacher',
+                           'demoData', 'createdAt', 'updatedAt'
+                         ]) &&
+                         isValidDioramaModule(incoming(), userId);
+
+        allow update: if isSignedIn() &&
+                         isValidId(moduleId) &&
+                         isValidDioramaModule(incoming(), userId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().moduleCode == existing().moduleCode &&
+                         incoming().barcodeCode == existing().barcodeCode &&
+                         incoming().createdAt == existing().createdAt &&
+                         (
+                           isAdmin() ||
+                           (
+                             isOwner(userId) &&
+                             incoming().diff(existing()).affectedKeys().hasOnly([
+                               'name', 'category', 'description', 'storageLocation',
+                               'moduleStatus', 'requiredLevels', 'activeClassId',
+                               'activeSessionLabel', 'verifiedByTeacher', 'updatedAt'
+                             ])
+                           )
+                         );
+
+        allow delete: if isSignedIn() && isValidId(moduleId) && isOwnerOrAdmin(userId);
+      }
+
+      // -----------------------------------------------------------------------
+      // SCAN LOGS (Append-only Audit Trail)
+      // -----------------------------------------------------------------------
+      match /scan_logs/{logId} {
+        allow get: if isSignedIn() && isValidId(logId) && isOwnerOrAdmin(userId);
+        allow list: if isSignedIn() && isOwnerOrAdmin(userId);
+
+        allow create: if isSignedIn() &&
+                         isValidId(logId) &&
+                         isOwnerOrAdmin(userId) &&
+                         incoming().keys().hasAll([
+                           'userId', 'barcodeCode', 'objectName', 'classId',
+                           'studentName', 'sessionName', 'addedToInventory',
+                           'scanNote', 'createdAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'barcodeCode', 'objectName', 'classId',
+                           'studentName', 'sessionName', 'addedToInventory',
+                           'scanNote', 'createdAt'
+                         ]) &&
+                         isValidScanLog(incoming(), userId);
+
+        allow update: if false;
+        allow delete: if isSignedIn() && isValidId(logId) && isOwnerOrAdmin(userId);
+      }
+
+      // -----------------------------------------------------------------------
+      // CITY WORLDS (2.5D Isometric Simulation State)
+      // -----------------------------------------------------------------------
+      match /city_worlds/{worldId} {
+        allow get: if isSignedIn() && isValidId(worldId) && isOwnerOrAdmin(userId);
+        allow list: if isSignedIn() && isOwnerOrAdmin(userId);
+
+        allow create: if isSignedIn() &&
+                         isValidId(worldId) &&
+                         isOwnerOrAdmin(userId) &&
+                         incoming().keys().hasAll([
+                           'userId', 'classId', 'activeLevel', 'coins', 'xp',
+                           'networkHealth', 'activeFault', 'stemPhase', 'completedLevels',
+                           'placedNodes', 'cableLinks', 'sessionInventory',
+                           'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'classId', 'activeLevel', 'coins', 'xp',
+                           'networkHealth', 'activeFault', 'stemPhase', 'completedLevels',
+                           'placedNodes', 'cableLinks', 'sessionInventory',
+                           'createdAt', 'updatedAt'
+                         ]) &&
+                         isValidCityWorld(incoming(), userId);
+
+        allow update: if isSignedIn() &&
+                         isValidId(worldId) &&
+                         isValidCityWorld(incoming(), userId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         (
+                           isAdmin() ||
+                           (
+                             isOwner(userId) &&
+                             incoming().diff(existing()).affectedKeys().hasOnly([
+                               'classId', 'activeLevel', 'coins', 'xp', 'networkHealth',
+                               'activeFault', 'stemPhase', 'completedLevels',
+                               'placedNodes', 'cableLinks', 'sessionInventory', 'updatedAt'
+                             ])
+                           )
+                         );
+
+        allow delete: if isSignedIn() && isValidId(worldId) && isOwnerOrAdmin(userId);
+      }
+
+      // -----------------------------------------------------------------------
+      // ASSESSMENTS (With Terminal State Locking on FINALIZED)
+      // -----------------------------------------------------------------------
+      match /assessments/{assessmentId} {
+        allow get: if isSignedIn() && isValidId(assessmentId) && isOwnerOrAdmin(userId);
+        allow list: if isSignedIn() && isOwnerOrAdmin(userId);
+
+        allow create: if isSignedIn() &&
+                         isValidId(assessmentId) &&
+                         isOwnerOrAdmin(userId) &&
+                         incoming().keys().hasAll([
+                           'userId', 'studentName', 'classId', 'groupName', 'levelNumber',
+                           'missionTitle', 'durationMinutes', 'technicalScore', 'designScore',
+                           'physicalScore', 'troubleshootingScore', 'finalScore',
+                           'gameResultSummary', 'dioramaVerified', 'teacherNote', 'status',
+                           'demoData', 'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'studentName', 'classId', 'groupName', 'levelNumber',
+                           'missionTitle', 'durationMinutes', 'technicalScore', 'designScore',
+                           'physicalScore', 'troubleshootingScore', 'finalScore',
+                           'gameResultSummary', 'dioramaVerified', 'teacherNote', 'status',
+                           'demoData', 'createdAt', 'updatedAt'
+                         ]) &&
+                         isValidAssessment(incoming(), userId);
+
+        allow update: if isSignedIn() &&
+                         isValidId(assessmentId) &&
+                         isValidAssessment(incoming(), userId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         (
+                           isAdmin() ||
+                           (
+                             isOwner(userId) &&
+                             existing().status != 'FINALIZED' &&
+                             incoming().diff(existing()).affectedKeys().hasOnly([
+                               'studentName', 'classId', 'groupName', 'levelNumber',
+                               'missionTitle', 'durationMinutes', 'technicalScore',
+                               'designScore', 'physicalScore', 'troubleshootingScore',
+                               'finalScore', 'gameResultSummary', 'dioramaVerified',
+                               'teacherNote', 'status', 'updatedAt'
+                             ])
+                           )
+                         );
+
+        allow delete: if isSignedIn() && isValidId(assessmentId) &&
+                         (isAdmin() || (isOwner(userId) && existing().status != 'FINALIZED'));
+      }
+    }
+  }
+}

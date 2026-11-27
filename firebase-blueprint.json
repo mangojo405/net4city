@@ -1,0 +1,429 @@
+{
+  "entities": {
+    "AdminRecord": {
+      "title": "AdminRecord",
+      "description": "Trusted administrator registry entry for NET4CITY RBAC verification.",
+      "type": "object",
+      "properties": {
+        "displayName": {
+          "type": "string",
+          "description": "Administrator display name (e.g., Dabojo)"
+        },
+        "email": {
+          "type": "string",
+          "description": "Verified administrator email address"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when admin entry was created (FieldValue.serverTimestamp())"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when admin entry was updated (FieldValue.serverTimestamp())"
+        }
+      },
+      "required": ["displayName", "email", "createdAt", "updatedAt"]
+    },
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Authenticated user workspace profile and game progression summary.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Firebase Auth UID of the owner" },
+        "displayName": { "type": "string", "description": "Display name of the authenticated user" },
+        "workspacePersona": {
+          "type": "string",
+          "enum": ["ADMIN", "GURU", "SISWA"],
+          "description": "Active dashboard view persona inside the user's sandbox workspace"
+        },
+        "selectedClassId": { "type": "string", "description": "Currently selected TJKT class ID" },
+        "selectedStudentId": { "type": "string", "description": "Currently selected student profile ID" },
+        "demoSeeded": { "type": "boolean", "description": "Whether initial simulated demo data has been populated" },
+        "coins": { "type": "integer", "description": "Virtual city budget currency (NC$)" },
+        "xp": { "type": "integer", "description": "Accumulated experience points" },
+        "unlockedLevel": { "type": "integer", "description": "Highest unlocked learning level (1-10)" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server creation timestamp" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server last update timestamp" }
+      },
+      "required": [
+        "userId",
+        "displayName",
+        "workspacePersona",
+        "selectedClassId",
+        "selectedStudentId",
+        "demoSeeded",
+        "coins",
+        "xp",
+        "unlockedLevel",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "ClassRoom": {
+      "title": "ClassRoom",
+      "description": "SMK TJKT/TKJ class container (X TKJ 1 through X TKJ 4).",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Workspace owner UID" },
+        "code": { "type": "string", "description": "Class code such as X TKJ 1" },
+        "name": { "type": "string", "description": "Descriptive class name" },
+        "teacherName": { "type": "string", "description": "Assigned teacher name" },
+        "maxUnlockedLevel": { "type": "integer", "description": "Maximum level unlocked by teacher for this class (1-10)" },
+        "activeSessionMission": { "type": "string", "description": "Current active lab/diorama practicum session label" },
+        "labGroups": { "type": "array", "description": "Bounded list of practicum group names (max 10)" },
+        "demoData": { "type": "boolean", "description": "Flags simulated demonstration data" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server creation timestamp" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server last update timestamp" }
+      },
+      "required": [
+        "userId",
+        "code",
+        "name",
+        "teacherName",
+        "maxUnlockedLevel",
+        "activeSessionMission",
+        "labGroups",
+        "demoData",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "SchoolMember": {
+      "title": "SchoolMember",
+      "description": "Teacher (GURU) or Student (SISWA) record in the school directory.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Workspace owner UID" },
+        "memberType": { "type": "string", "enum": ["GURU", "SISWA"], "description": "School role" },
+        "fullName": { "type": "string", "description": "Full name of teacher or student" },
+        "identityNumber": { "type": "string", "description": "NIP for teacher or NIS for student" },
+        "classId": { "type": "string", "description": "Assigned class ID for students" },
+        "assignedClasses": { "type": "array", "description": "List of class IDs managed by a teacher (max 10)" },
+        "groupName": { "type": "string", "description": "Practicum group assignment" },
+        "xp": { "type": "integer", "description": "Student experience points" },
+        "level": { "type": "integer", "description": "Current learning level (1-10)" },
+        "characterId": { "type": "string", "description": "Linked Character ID code (e.g., NC-CHAR-00001)" },
+        "demoData": { "type": "boolean", "description": "Flags simulated demonstration data" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server creation timestamp" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server last update timestamp" }
+      },
+      "required": [
+        "userId",
+        "memberType",
+        "fullName",
+        "identityNumber",
+        "classId",
+        "assignedClasses",
+        "groupName",
+        "xp",
+        "level",
+        "characterId",
+        "demoData",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "NetCityCharacter": {
+      "title": "NetCityCharacter",
+      "description": "Modular layered virtual technician character with permanent QR ID.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Workspace owner UID" },
+        "characterCode": { "type": "string", "description": "Permanent QR ID such as NC-CHAR-00001" },
+        "name": { "type": "string", "description": "Character display name" },
+        "ownerName": { "type": "string", "description": "Student or teacher owner name" },
+        "classId": { "type": "string", "description": "Class code of the character owner" },
+        "profession": { "type": "string", "description": "TJKT profession track" },
+        "faceShape": { "type": "string", "description": "Face layer style" },
+        "hairStyle": { "type": "string", "description": "Hair layer style" },
+        "hairColor": { "type": "string", "description": "Hair color key" },
+        "outfitStyle": { "type": "string", "description": "Uniform or shirt layer style" },
+        "pantsColor": { "type": "string", "description": "Pants color key" },
+        "shoeStyle": { "type": "string", "description": "Footwear layer style" },
+        "accessory": { "type": "string", "description": "Headwear or glasses accessory" },
+        "workTool": { "type": "string", "description": "Equipped technician tool" },
+        "level": { "type": "integer", "description": "Character level (1-10)" },
+        "xp": { "type": "integer", "description": "Character XP" },
+        "skills": { "type": "array", "description": "Unlocked technical skills (max 10)" },
+        "demoData": { "type": "boolean", "description": "Flags simulated demonstration data" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server creation timestamp" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server last update timestamp" }
+      },
+      "required": [
+        "userId",
+        "characterCode",
+        "name",
+        "ownerName",
+        "classId",
+        "profession",
+        "faceShape",
+        "hairStyle",
+        "hairColor",
+        "outfitStyle",
+        "pantsColor",
+        "shoeStyle",
+        "accessory",
+        "workTool",
+        "level",
+        "xp",
+        "skills",
+        "demoData",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "BarcodeObject": {
+      "title": "BarcodeObject",
+      "description": "Permanent digital identity for a physical diorama device or building.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Workspace owner UID" },
+        "barcodeCode": { "type": "string", "description": "Permanent barcode ID (e.g., NC-RTR-001)" },
+        "objectName": { "type": "string", "description": "Device or building name" },
+        "category": { "type": "string", "description": "Hardware or infrastructure category" },
+        "functionDesc": { "type": "string", "description": "Technical function explanation" },
+        "specs": { "type": "string", "description": "Technical specifications" },
+        "portCount": { "type": "integer", "description": "Number of physical network ports" },
+        "virtualPrice": { "type": "integer", "description": "Virtual currency cost in game" },
+        "installNeeds": { "type": "string", "description": "Installation prerequisites" },
+        "relatedLevel": { "type": "integer", "description": "Primary curriculum level (1-10)" },
+        "storageLocation": { "type": "string", "description": "Physical lab rack or box location" },
+        "inventoryStatus": {
+          "type": "string",
+          "enum": ["TERSEDIA", "DIGUNAKAN", "PERBAIKAN"],
+          "description": "Physical availability status"
+        },
+        "activeClassId": { "type": "string", "description": "Class currently using this object" },
+        "activeStudentName": { "type": "string", "description": "Student currently assigned in session" },
+        "demoData": { "type": "boolean", "description": "Flags simulated demonstration data" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server creation timestamp" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server last update timestamp" }
+      },
+      "required": [
+        "userId",
+        "barcodeCode",
+        "objectName",
+        "category",
+        "functionDesc",
+        "specs",
+        "portCount",
+        "virtualPrice",
+        "installNeeds",
+        "relatedLevel",
+        "storageLocation",
+        "inventoryStatus",
+        "activeClassId",
+        "activeStudentName",
+        "demoData",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "DioramaModule": {
+      "title": "DioramaModule",
+      "description": "Physical modular diorama tile shared across classes with permanent barcode.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Workspace owner UID" },
+        "moduleCode": { "type": "string", "description": "Unique module code" },
+        "name": { "type": "string", "description": "Diorama module title" },
+        "category": { "type": "string", "description": "Building or infrastructure category" },
+        "barcodeCode": { "type": "string", "description": "Permanent linked barcode ID" },
+        "description": { "type": "string", "description": "Module usage description" },
+        "storageLocation": { "type": "string", "description": "Storage shelf location" },
+        "moduleStatus": {
+          "type": "string",
+          "enum": ["TERSEDIA", "DIGUNAKAN"],
+          "description": "Current physical checkout status"
+        },
+        "requiredLevels": { "type": "array", "description": "Learning levels using this module (max 10)" },
+        "activeClassId": { "type": "string", "description": "Class currently using the module" },
+        "activeSessionLabel": { "type": "string", "description": "Active practicum session label" },
+        "verifiedByTeacher": { "type": "boolean", "description": "Manual teacher verification of physical layout" },
+        "demoData": { "type": "boolean", "description": "Flags simulated demonstration data" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server creation timestamp" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server last update timestamp" }
+      },
+      "required": [
+        "userId",
+        "moduleCode",
+        "name",
+        "category",
+        "barcodeCode",
+        "description",
+        "storageLocation",
+        "moduleStatus",
+        "requiredLevels",
+        "activeClassId",
+        "activeSessionLabel",
+        "verifiedByTeacher",
+        "demoData",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "ScanLog": {
+      "title": "ScanLog",
+      "description": "Audit log of USB Barcode/QR scanner readings on the interactive board.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Workspace owner UID" },
+        "barcodeCode": { "type": "string", "description": "Scanned barcode ID" },
+        "objectName": { "type": "string", "description": "Resolved object display name" },
+        "classId": { "type": "string", "description": "Active class during scan" },
+        "studentName": { "type": "string", "description": "Student who performed the scan" },
+        "sessionName": { "type": "string", "description": "Practicum session identifier" },
+        "addedToInventory": { "type": "boolean", "description": "Whether the item was added to virtual session inventory" },
+        "scanNote": { "type": "string", "description": "Result note such as duplicate-guard notification" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server scan timestamp" }
+      },
+      "required": [
+        "userId",
+        "barcodeCode",
+        "objectName",
+        "classId",
+        "studentName",
+        "sessionName",
+        "addedToInventory",
+        "scanNote",
+        "createdAt"
+      ]
+    },
+    "CityWorld": {
+      "title": "CityWorld",
+      "description": "Persistent 2.5D isometric city simulation state per class.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Workspace owner UID" },
+        "classId": { "type": "string", "description": "Class code owning this city simulation" },
+        "activeLevel": { "type": "integer", "description": "Current active curriculum level (1-10)" },
+        "coins": { "type": "integer", "description": "Virtual city treasury (NC$)" },
+        "xp": { "type": "integer", "description": "City engineering XP" },
+        "networkHealth": { "type": "integer", "description": "Network uptime health percentage (0-100)" },
+        "activeFault": { "type": "string", "description": "Active simulated network fault code or empty" },
+        "stemPhase": {
+          "type": "string",
+          "enum": ["EXPLORE", "DESIGN", "BUILD", "TEST"],
+          "description": "Current STEM learning mission stage"
+        },
+        "completedLevels": { "type": "array", "description": "Completed level numbers (max 10)" },
+        "placedNodes": { "type": "array", "description": "Isometric buildings and devices on grid (max 60)" },
+        "cableLinks": { "type": "array", "description": "UTP and Fiber Optic links between nodes (max 80)" },
+        "sessionInventory": { "type": "array", "description": "Unique scanned barcode codes registered in current session (max 40)" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server creation timestamp" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server last update timestamp" }
+      },
+      "required": [
+        "userId",
+        "classId",
+        "activeLevel",
+        "coins",
+        "xp",
+        "networkHealth",
+        "activeFault",
+        "stemPhase",
+        "completedLevels",
+        "placedNodes",
+        "cableLinks",
+        "sessionInventory",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "AssessmentRecord": {
+      "title": "AssessmentRecord",
+      "description": "Four-category rubric grading record for student virtual and diorama practicum.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Workspace owner UID" },
+        "studentName": { "type": "string", "description": "Evaluated student name" },
+        "classId": { "type": "string", "description": "Student class code" },
+        "groupName": { "type": "string", "description": "Practicum group name" },
+        "levelNumber": { "type": "integer", "description": "Evaluated level (1-10)" },
+        "missionTitle": { "type": "string", "description": "Evaluated mission title" },
+        "durationMinutes": { "type": "integer", "description": "Time spent in minutes" },
+        "technicalScore": { "type": "integer", "description": "Pengetahuan teknis score (0-100)" },
+        "designScore": { "type": "integer", "description": "Kemampuan desain score (0-100)" },
+        "physicalScore": { "type": "integer", "description": "Praktik fisik diorama score (0-100)" },
+        "troubleshootingScore": { "type": "integer", "description": "Troubleshooting score (0-100)" },
+        "finalScore": { "type": "integer", "description": "Weighted final score (0-100)" },
+        "gameResultSummary": { "type": "string", "description": "Summary of virtual city performance" },
+        "dioramaVerified": { "type": "boolean", "description": "Teacher manual diorama verification status" },
+        "teacherNote": { "type": "string", "description": "Teacher evaluation notes" },
+        "status": {
+          "type": "string",
+          "enum": ["DRAFT", "FINALIZED"],
+          "description": "Assessment lock status; FINALIZED is terminal unless admin overrides"
+        },
+        "demoData": { "type": "boolean", "description": "Flags simulated demonstration data" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server creation timestamp" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server last update timestamp" }
+      },
+      "required": [
+        "userId",
+        "studentName",
+        "classId",
+        "groupName",
+        "levelNumber",
+        "missionTitle",
+        "durationMinutes",
+        "technicalScore",
+        "designScore",
+        "physicalScore",
+        "troubleshootingScore",
+        "finalScore",
+        "gameResultSummary",
+        "dioramaVerified",
+        "teacherNote",
+        "status",
+        "demoData",
+        "createdAt",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/admins/{adminId}": {
+      "schema": { "$ref": "#/entities/AdminRecord" },
+      "description": "Trusted admin registry for role verification"
+    },
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Authenticated user workspace root profile"
+    },
+    "/users/{userId}/classes/{classId}": {
+      "schema": { "$ref": "#/entities/ClassRoom" },
+      "description": "Logical TJKT classes X TKJ 1 through X TKJ 4"
+    },
+    "/users/{userId}/members/{memberId}": {
+      "schema": { "$ref": "#/entities/SchoolMember" },
+      "description": "Teachers and students enrolled in the workspace"
+    },
+    "/users/{userId}/characters/{characterId}": {
+      "schema": { "$ref": "#/entities/NetCityCharacter" },
+      "description": "Modular Character Studio avatars with permanent QR IDs"
+    },
+    "/users/{userId}/barcodes/{barcodeId}": {
+      "schema": { "$ref": "#/entities/BarcodeObject" },
+      "description": "Permanent physical device and building QR/barcode registry"
+    },
+    "/users/{userId}/diorama_modules/{moduleId}": {
+      "schema": { "$ref": "#/entities/DioramaModule" },
+      "description": "Physical modular diorama inventory shared across classes"
+    },
+    "/users/{userId}/scan_logs/{logId}": {
+      "schema": { "$ref": "#/entities/ScanLog" },
+      "description": "Historical log of USB barcode/QR scanner sessions"
+    },
+    "/users/{userId}/city_worlds/{worldId}": {
+      "schema": { "$ref": "#/entities/CityWorld" },
+      "description": "Isometric 2.5D virtual city simulation states"
+    },
+    "/users/{userId}/assessments/{assessmentId}": {
+      "schema": { "$ref": "#/entities/AssessmentRecord" },
+      "description": "Student four-category STEM rubric grades and teacher feedback"
+    }
+  }
+}
